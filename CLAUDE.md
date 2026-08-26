@@ -45,7 +45,7 @@ Migration kontrolü: `manage.py makemigrations --check` (testte de koşuyor).
 | 0b | B1–B5 → SPEC v1.1 | ✅ |
 | 0c | Kapsam değişikliği → SPEC v2.0 | ✅ |
 | 1 | İskelet: Django + docker-compose + §3 modelleri + admin + export/purge | ✅ |
-| 2 | LLMService + tier + ön-tahminli bütçe + degrade modu | ⬜ |
+| 2 | LLMService + tier + ön-tahminli bütçe + degrade modu | ✅ |
 | 3 | MemoryService + pgvector + decay/keşif istisnası | ⬜ |
 | 4 | Telegram botu (webhook + secret_token) | ⬜ |
 | 5 | self_model: kimlik / maruziyet / ilgi + `/ben` | ⬜ |

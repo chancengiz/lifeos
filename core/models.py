@@ -530,6 +530,8 @@ class LLMUsage(models.Model):
     date = models.DateField()
     tier = models.CharField(max_length=20)
     purpose = models.CharField(max_length=100)
+    # SPEC 10 caps frontier calls per day, which needs a count, not just a cost.
+    calls = models.IntegerField(default=0)
     input_tokens = models.BigIntegerField(default=0)
     output_tokens = models.BigIntegerField(default=0)
     cost_usd = models.DecimalField(max_digits=8, decimal_places=4, default=0)

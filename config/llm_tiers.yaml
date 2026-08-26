@@ -1,0 +1,53 @@
+# LLM routing table (SPEC 10).
+#
+# Model names never appear in code. Code asks for a tier; this file decides
+# which backend and model serve it, what it costs, and how often it may run.
+#
+# backend:
+#   anthropic - official Anthropic SDK, the default for text tiers
+#   litellm   - provider-agnostic router, for anything Anthropic does not serve
+#               (embeddings today) or for switching providers without code changes
+#
+# Prices are USD per million tokens and are the only place cost is defined.
+
+defaults:
+  max_tokens: 4096
+  timeout_seconds: 120
+
+tiers:
+  # Embeddings. Anthropic has no embeddings endpoint, so this tier routes
+  # through litellm. Changing the model here means changing
+  # EMBEDDING_DIMENSIONS and re-embedding everything; MemoryItem.embedding_model
+  # records which model produced each stored vector.
+  TIER_EMBED:
+    backend: litellm
+    model: text-embedding-3-small
+    dimensions: 1536
+    input_usd_per_mtok: 0.02
+    output_usd_per_mtok: 0.0
+
+  # Cheap, batched work: mail triage, event labelling, exploration lanes.
+  TIER_SMALL:
+    backend: anthropic
+    model: claude-haiku-4-5
+    input_usd_per_mtok: 1.00
+    output_usd_per_mtok: 5.00
+    max_tokens: 2048
+
+  # Agent loop steps, anomaly explanations, mesh message drafting.
+  TIER_MID:
+    backend: anthropic
+    model: claude-sonnet-5
+    input_usd_per_mtok: 2.00
+    output_usd_per_mtok: 10.00
+    max_tokens: 4096
+
+  # Daily briefing synthesis, exploit impact analysis, negotiation decisions.
+  # SPEC 10 caps this at 3 calls per entity per day.
+  TIER_FRONTIER:
+    backend: anthropic
+    model: claude-opus-5
+    input_usd_per_mtok: 5.00
+    output_usd_per_mtok: 25.00
+    max_tokens: 8192
+    daily_call_cap: 3

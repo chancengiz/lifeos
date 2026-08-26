@@ -2,7 +2,7 @@
 
 Bir varlığın (kişi veya şirket) dijital ikizi. Sahibini tanır, dünyayı sahibinin maruziyetleri üzerinden okur, kendi başına internette araştırır, başka ikizlerle müzakere eder ve sonuç doğuran her adımı sahibinin onayına sunar.
 
-**Durum:** §13 madde 1 (İskelet) tamam — Django projesi, veri modeli, admin, export/purge, docker-compose. Sıradaki iş madde 2 (LLMService).
+**Durum:** §13 madde 2 tamam — iskelet, veri modeli ve LLMService (tier yönlendirme, maliyet muhasebesi, bütçe tavanı). Sıradaki iş madde 3 (MemoryService).
 
 ## Dosyalar
 
@@ -47,4 +47,4 @@ python manage.py purge_entity <id> --yes             # geri dönüşsüz silme
 
 ## Sonraki adım
 
-SPEC §13 madde 2 — LLMService: litellm, `llm_tiers.yaml`, LLMUsage yazımı, ön-tahminli bütçe koruması ve degrade modu.
+SPEC §13 madde 3 — MemoryService: pgvector kurulumu, write/search, gece çelişki batch'i, decay ve keşif istisnası, `memory_add` / `memory_query` CLI'ları.

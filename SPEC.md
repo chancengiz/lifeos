@@ -54,7 +54,7 @@ v1.1'den taşınan sözleşmeler korundu: `dedup_key` idempotency (B1), `ModuleC
 | DB | PostgreSQL 16 + pgvector | embedding'ler için `vector` kolonu |
 | Kuyruk / Zamanlama | Celery + Redis, celery-beat | |
 | Arayüz | python-telegram-bot (webhook modu) | MVP'de tek arayüz |
-| LLM erişimi | litellm, kendi `LLMService` sarmalayıcımızın arkasında | sağlayıcı-bağımsızlık |
+| LLM erişimi | Kendi `LLMService` sarmalayıcımız + tier başına arka uç: `anthropic` (resmî SDK, metin tier'ları) / `litellm` (diğer sağlayıcılar) | Sağlayıcı-bağımsızlık sarmalayıcıda ve `llm_tiers.yaml`'da; kod model adı bilmez. Anthropic'in embedding uç noktası olmadığı için TIER_EMBED litellm üzerinden gider |
 | Web arama | tek bir arama API'si, `WebSearchTool` arkasında | sağlayıcı değişebilir, arayüz sabit |
 | Sayfa okuma | httpx + readability/trafilatura tipi çıkarım | yalnızca GET; JS çalıştırılmaz |
 | Google | google-api-python-client, OAuth (test mode) | scope'lar §12; refresh token 7 günde düşer (§13/10) |
@@ -554,6 +554,8 @@ Model adları koda yazılmaz; yalnızca tier alias'ı kullanılır.
 | TIER_SMALL | ucuz sınıf | mail triyaj, event etiketleme, **keşif şeritleri** | yüksek, batch |
 | TIER_MID | orta sınıf | ajan döngüsü adımları, anomali açıklaması, mesh mesaj üretimi | orta |
 | TIER_FRONTIER | en güçlü | günlük brifing sentezi, exploit etki analizi, müzakere kararı | düşük |
+
+Arka uç seçimi de tier başına YAML'dadır: metin tier'ları resmî Anthropic SDK'sını, embedding tier'ı litellm'i kullanır (Anthropic'in embedding uç noktası yoktur). Yeni sağlayıcı = yeni arka uç adaptörü + YAML satırı; `LLMService` değişmez.
 
 Kurallar: TIER_FRONTIER günde entity başına ≤3 çağrı. Triyaj daima batch (≤25 mail/çağrı). Ajan döngüsünde adım başına tier sabit değildir; ilk adımlar TIER_MID, nihai sentez TIER_FRONTIER.
 

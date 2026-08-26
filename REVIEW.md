@@ -42,7 +42,7 @@ Yeni kapsam yeni risk getirdi. Bunlar spec'te ele alındı ama **kanıtlanmadı*
 | R4 | **`counter` şeridi `Stance` kaydı yoksa atıl** | Kullanıcı pozisyon girmezse karşı-görüş şeridi boş döner ve yankı kırıcı işlevi sessizce kaybolur | 9. oturum — `Stance` boşsa şerit devre dışı bırakılıp kullanıcıya bildirilmeli, sessiz geçilmemeli |
 | R5 | **`random` şeridinin kaynak havuzu tanımsız** | "Tamamen ilişkisiz" nasıl örneklenecek belirsiz. Kötü havuz = gürültü = kullanıcının keşif bölümünü okumayı bırakması | 9. oturum — havuz tanımı ve örnekleme yöntemi kararı |
 | R6 | **Mesh yerel taşımada izolasyon gerçek değil** | İki entity aynı DB'de; `ShareContract` fiilen kendi kendine uyguladığı bir kural. Gerçek sınır ancak uzak taşımada oluşur | 15–16. oturum — redaksiyon testleri sınırı kod düzeyinde kanıtlamalı; gerçek izolasyon V1 |
-| R7 | **Token muhasebesi çift sayım riski** | `ResearchTask.tokens_used` ve `LLMUsage` aynı harcamayı iki yerde tutuyor; bütçe kontrolü yanlış tarafa bakarsa tavan delinir | 6. oturum — tek kaynak `LLMUsage`, task alanı türev olmalı |
+| R7 | **Token muhasebesi çift sayım riski** | `ResearchTask.tokens_used` ve `LLMUsage` aynı harcamayı iki yerde tutuyor; bütçe kontrolü yanlış tarafa bakarsa tavan delinir | Kısmen kapandı (2. oturum): bütçe yalnızca `LLMUsage`'a bakıyor, `tokens_used` türev alan olarak işaretlendi. Ajan döngüsü onu yazarken uyum 6. oturumda doğrulanacak |
 | R8 | **Maliyet bandı ölçülmedi** | 20–40 USD/ay tahmindir. Açık uçlu araştırma tavanlara rağmen beklenenden pahalı çıkabilir | 8–9. oturum sonrası ilk gerçek ölçüm; sapma varsa tavanlar sıkılır |
 | R9 | **Mesh n=2'de bağlantı arama değeri üretmez** | Protokol doğru olsa da "fayda sağlayacak bağlantı bulma" ağ büyümeden çalışmaz. MVP bunu kanıtlayamaz, yalnızca mekanizmayı kanıtlar | Ağ büyüdüğünde; MVP kabul kriteri buna göre yazıldı (§13) |
 
@@ -53,4 +53,15 @@ Yeni kapsam yeni risk getirdi. Bunlar spec'te ele alındı ama **kanıtlanmadı*
 - `ModuleContractTestCase` — §4'te sözleşme olarak yazıldı, kod olarak yazılmadı (1. veya 5. oturum)
 - Injection saldırı test seti — R1 (7. oturum)
 - Redaksiyon sınır testleri — R6 (15. oturum)
-- Bütçe tavanı yarış testi — Ö1 kapandı ama eşzamanlı çağrı testi yok (2. oturum)
+- ~~Bütçe tavanı yarış testi~~ — 2. oturumda kapandı: iki eşzamanlı çağrı testi, advisory lock kaldırıldığında kırmızıya dönüyor (doğrulandı)
+
+---
+
+## Bölüm D — Oturum kararları
+
+**2. oturum — LLM arka uç soyutlaması.** SPEC §1 v2.0'a kadar "litellm" tek erişim yolu olarak yazılıydı. Uygulamada iki gerçek bunu değiştirdi:
+
+1. Anthropic API'sinin embedding uç noktası yok; TIER_EMBED zorunlu olarak başka bir sağlayıcıya gitmek durumunda.
+2. Metin tier'ları için resmî SDK, çok sağlayıcılı bir yönlendiriciden daha doğru ve güncel bir yüzey sunuyor.
+
+Bu yüzden sağlayıcı-bağımsızlık `LLMService` + `llm_tiers.yaml` katmanına taşındı; arka uç tier başına seçiliyor (`anthropic` | `litellm`). Spec'in asıl niyeti — **kod model adı bilmez** — korunuyor, hatta güçleniyor: artık sağlayıcı bile YAML'dan geliyor. §1 ve §10 buna göre güncellendi. litellm zorunlu bağımlılık olmaktan çıktı, tembel import edilen opsiyonel bir arka uç oldu.

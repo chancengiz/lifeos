@@ -6,6 +6,14 @@ redis>=5.0
 django-celery-beat>=2.6
 django-environ>=0.11
 cryptography>=42.0
+PyYAML>=6.0
+
+# LLM access (SPEC 10). Tier routing lives in config/llm_tiers.yaml.
+anthropic>=1.0
+# Optional second backend, imported lazily. Required only for tiers whose
+# backend is `litellm` - today that is TIER_EMBED, since the Anthropic API has
+# no embeddings endpoint.
+# litellm>=1.40
 
 # dev / test
 pytest>=8.0
