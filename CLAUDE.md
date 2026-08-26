@@ -20,6 +20,18 @@
 - Yanıtlar kısa; giriş cümlesi, özet ve dolgu yok
 - İlerleme takip tablosuna işlenir, ayrıca özetlenmez
 
+## Geliştirme Ortamı
+
+```
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+cp .env.example .env          # DJANGO_SECRET_KEY ve FERNET_KEY doldur
+docker compose up             # postgres(pgvector) + redis + web + worker + beat
+```
+
+Docker'sız yerel test: PostgreSQL 16 + `postgresql-16-pgvector`, sonra
+`POSTGRES_HOST=localhost .venv/bin/python -m pytest`.
+Migration kontrolü: `manage.py makemigrations --check` (testte de koşuyor).
+
 ## Referanslar
 
 - `SPEC.md` v2.0 — vizyon, veri modeli, modül sözleşmesi (§4), ajan döngüsü (§5), mesh protokolü (§6), keşif kotası (§7), güvenlik (§12), oturum planı (§13)
@@ -32,7 +44,7 @@
 | 0 | Spec incelemesi + repo kurulumu | ✅ |
 | 0b | B1–B5 → SPEC v1.1 | ✅ |
 | 0c | Kapsam değişikliği → SPEC v2.0 | ✅ |
-| 1 | İskelet: Django + docker-compose + §3 modelleri + admin + export/purge | ⬜ |
+| 1 | İskelet: Django + docker-compose + §3 modelleri + admin + export/purge | ✅ |
 | 2 | LLMService + tier + ön-tahminli bütçe + degrade modu | ⬜ |
 | 3 | MemoryService + pgvector + decay/keşif istisnası | ⬜ |
 | 4 | Telegram botu (webhook + secret_token) | ⬜ |

@@ -2,7 +2,7 @@
 
 Bir varlığın (kişi veya şirket) dijital ikizi. Sahibini tanır, dünyayı sahibinin maruziyetleri üzerinden okur, kendi başına internette araştırır, başka ikizlerle müzakere eder ve sonuç doğuran her adımı sahibinin onayına sunar.
 
-**Durum:** Faz 0 — spec v2.0, kod yazılmadı. Sıradaki iş §13 madde 1 (İskelet).
+**Durum:** §13 madde 1 (İskelet) tamam — Django projesi, veri modeli, admin, export/purge, docker-compose. Sıradaki iş madde 2 (LLMService).
 
 ## Dosyalar
 
@@ -24,6 +24,27 @@ Dördüncü ilke: **yankı odasına düşmeme** — araştırma ve bağlantılar
 
 Python 3.12 · Django 5.x · PostgreSQL 16 + pgvector · Celery + Redis · python-telegram-bot (webhook) · litellm · Docker Compose
 
+## Kurulum
+
+```bash
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+cp .env.example .env          # DJANGO_SECRET_KEY ve FERNET_KEY doldur
+docker compose up             # postgres(pgvector) + redis + web + worker + beat
+```
+
+Testler (yerel PostgreSQL 16 + pgvector ile):
+
+```bash
+POSTGRES_HOST=localhost .venv/bin/python -m pytest
+```
+
+Yönetim komutları:
+
+```bash
+python manage.py export_entity <id> -o export.json   # tüm veri, sırlar hariç
+python manage.py purge_entity <id> --yes             # geri dönüşsüz silme
+```
+
 ## Sonraki adım
 
-SPEC §13 madde 1 — İskelet: Django + docker-compose (postgres/pgvector, redis, web, worker, beat) + §3 modelleri + admin kayıtları + export/purge komut iskeletleri.
+SPEC §13 madde 2 — LLMService: litellm, `llm_tiers.yaml`, LLMUsage yazımı, ön-tahminli bütçe koruması ve degrade modu.
