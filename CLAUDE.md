@@ -5,8 +5,8 @@
 1. Onay almadan hiçbir işleme başlama. Önce ne yapılacağını açıkla, onay geldikten sonra işleme geç.
 2. Gereksiz soru sorma. Plan belliyse anlat ve onay iste, fazladan seçenek üretme.
 3. Test geçmeden hiçbir kod projeye dahil edilmez. Önce test yazılır, sonra bileşen.
-4. Oturum başına tek `SPEC.md` §10 maddesi. Kapsam genişletme önerme, sor.
-5. `core/` içindeki §4 sözleşme imzaları değiştirilecekse önce gerekçe sun, onay al.
+4. Oturum başına tek `SPEC.md` §13 maddesi. Kapsam genişletme önerme, sor.
+5. `core/`, `agent/`, `mesh/` içindeki sözleşme imzaları (§4, §5, §6) değiştirilecekse önce gerekçe sun, onay al.
 6. Yeni bağımlılık eklemeden önce sor.
 7. Kod ve yorumlar İngilizce, kullanıcıya açıklamalar Türkçe.
 8. Her serviste birim test; entegrasyonlar mock'lanır, gerçek API testleri ayrı `manage.py` komutlarıyla manuel.
@@ -22,22 +22,30 @@
 
 ## Referanslar
 
-- `SPEC.md` — mimari, veri modeli, modül sözleşmesi, oturum planı
-- `REVIEW.md` — bulgu takibi. B1–B5 kapandı (SPEC v1.1); Ö1–Ö5, küçükler ve test borcu açık.
+- `SPEC.md` v2.0 — vizyon, veri modeli, modül sözleşmesi (§4), ajan döngüsü (§5), mesh protokolü (§6), keşif kotası (§7), güvenlik (§12), oturum planı (§13)
+- `REVIEW.md` — Bölüm A kapanan bulgular, Bölüm B v2.0'ın açık riskleri (R1–R9), Bölüm C test borçları.
 
 ## Faz Durumu
 
 | Oturum | İçerik | Durum |
 |---|---|---|
 | 0 | Spec incelemesi + repo kurulumu | ✅ |
-| 0b | REVIEW.md B1–B5 → SPEC v1.1 | ✅ |
-| 1 | Django iskeleti + docker-compose + §3 modelleri | ⬜ |
-| 2 | LLMService + llm_tiers.yaml + bütçe koruması | ⬜ |
-| 3 | MemoryService + pgvector | ⬜ |
-| 4 | Telegram botu (webhook) | ⬜ |
-| 5 | Google OAuth + calendar_mod | ⬜ |
-| 6 | email_triage | ⬜ |
-| 7 | BriefingService + beat (uçtan uca ilk brifing) | ⬜ |
-| 8 | ApprovalService + email.reply_draft executor | ⬜ |
-| 9 | ecom_ops (Shopify + Meta Ads) | ⬜ |
-| 10 | Geri bildirim + kullanım raporu + world_digest | ⬜ |
+| 0b | B1–B5 → SPEC v1.1 | ✅ |
+| 0c | Kapsam değişikliği → SPEC v2.0 | ✅ |
+| 1 | İskelet: Django + docker-compose + §3 modelleri + admin + export/purge | ⬜ |
+| 2 | LLMService + tier + ön-tahminli bütçe + degrade modu | ⬜ |
+| 3 | MemoryService + pgvector + decay/keşif istisnası | ⬜ |
+| 4 | Telegram botu (webhook + secret_token) | ⬜ |
+| 5 | self_model: kimlik / maruziyet / ilgi + `/ben` | ⬜ |
+| 6 | AgentRuntime: döngü, araç sözleşmesi, tavanlar, izolasyon | ⬜ |
+| 7 | Web araçları + **injection savunma testleri** (R1) | ⬜ |
+| 8 | world_impact exploit: ImpactFinding + gerekçe zorunluluğu | ⬜ |
+| 9 | Keşif kotası: üç şerit + ExplorationLedger + dönüşüm ölçümü | ⬜ |
+| 10 | Google OAuth + calendar_mod + yeniden yetkilendirme (B5) | ⬜ |
+| 11 | email_triage (yalnızca tespit) | ⬜ |
+| 12 | ecom_ops: Shopify + Meta + maruziyet beslemesi | ⬜ |
+| 13 | BriefingService + beat: uçtan uca brifing | ⬜ |
+| 14 | ApprovalService + executors registry + AuditLog | ⬜ |
+| 15 | Mesh v1: kimlik, sözleşme, redaksiyon, yerel taşıma | ⬜ |
+| 16 | Mesh v2: müzakere + çift taraflı onay | ⬜ |
+| 17 | Ölçüm + kapanış: geri bildirim, maliyet, dönüşüm raporu | ⬜ |
