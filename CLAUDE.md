@@ -23,14 +23,14 @@
 ## Referanslar
 
 - `SPEC.md` — mimari, veri modeli, modül sözleşmesi, oturum planı
-- `REVIEW.md` — açık bulgular. B1–B5 kapanmadan 1. oturum başlamaz.
+- `REVIEW.md` — bulgu takibi. B1–B5 kapandı (SPEC v1.1); Ö1–Ö5, küçükler ve test borcu açık.
 
 ## Faz Durumu
 
 | Oturum | İçerik | Durum |
 |---|---|---|
 | 0 | Spec incelemesi + repo kurulumu | ✅ |
-| 0b | REVIEW.md B1–B5 → SPEC v1.1 | ⬜ |
+| 0b | REVIEW.md B1–B5 → SPEC v1.1 | ✅ |
 | 1 | Django iskeleti + docker-compose + §3 modelleri | ⬜ |
 | 2 | LLMService + llm_tiers.yaml + bütçe koruması | ⬜ |
 | 3 | MemoryService + pgvector | ⬜ |

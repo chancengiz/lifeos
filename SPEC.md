@@ -1,6 +1,16 @@
-# LIFE OS — Kişisel AI İkiz MVP — Teknik Spesifikasyon v1.0
+# LIFE OS — Kişisel AI İkiz MVP — Teknik Spesifikasyon v1.1
 
 > Bu dosya Claude Code için proje talimatıdır. Oturum planı §10'dadır; her oturumda tek bölüm inşa edilir, çekirdek sözleşmeler (§4) asla modül eklerken değiştirilmez.
+
+**v1.1 değişiklikleri** — `REVIEW.md` B1–B5 bloke edici bulguları işlendi. Kod yazılmadı, yalnızca sözleşme ve şema netleştirildi:
+
+- **B1** — `Event.dedup_key` + unique kısıt; kayıt sorumluluğu çekirdeğe verildi (§3, §4)
+- **B2** — `ModuleContext.sources()` / `cursor_commit()` kapıları (§4)
+- **B3** — `ModuleBase.subscribes` olay abonelik bildirimi (§4)
+- **B4** — `gmail.compose` scope'unun gerçek yetkisi ve kod düzeyi kısıtı (§9)
+- **B5** — test mode refresh token 7 gün ömrü: yeniden yetkilendirme akışı (§10)
+
+Açık kalan bulgular (Ö1–Ö5 önemli, 6 küçük, test borçları) `REVIEW.md` içinde izlenir.
 
 ---
 
@@ -36,7 +46,7 @@
 | Kuyruk / Zamanlama | Celery + Redis, celery-beat | |
 | Bot / Arayüz | python-telegram-bot (webhook modu) | MVP'de tek arayüz Telegram; web UI sonra |
 | LLM erişimi | litellm kütüphanesi, kendi `LLMService` sarmalayıcımızın arkasında | sağlayıcı-bağımsızlık |
-| Google | google-api-python-client, OAuth (test mode, readonly scope'lar) | doğrulama/CASA V1'e ertelendi |
+| Google | google-api-python-client, OAuth (test mode) | scope'lar §9'da; test mode refresh token 7 günde düşer (§10/5). Doğrulama/CASA V1'e ertelendi |
 | Shopify | Admin GraphQL API | mevcut mağaza token'ı |
 | Meta Ads | Marketing API (insights, readonly) | |
 | Deploy | Docker Compose, tek VPS | web + worker + beat + postgres + redis |
@@ -96,10 +106,18 @@ class Event(models.Model):
     entity = FK(Entity); source = FK(DataSource, null=True)
     type = models.CharField(max_length=100)   # "email.received", "order.created",
                                               # "ads.anomaly", "calendar.upcoming"...
+    dedup_key = models.CharField(max_length=200)      # B1: kaynağın kendi kalıcı
+                                                      # kimliği (gmail message id,
+                                                      # shopify order gid, gcal
+                                                      # event id). Zaman damgası
+                                                      # veya hash üretilmez.
     payload = models.JSONField()
     occurred_at = models.DateTimeField()
     processed = models.BooleanField(default=False)
-    class Meta: indexes = [Index(fields=["entity","processed","occurred_at"])]
+    class Meta:
+        indexes = [Index(fields=["entity","processed","occurred_at"])]
+        constraints = [UniqueConstraint(fields=["entity","type","dedup_key"],
+                                        name="uniq_event_dedup")]
 
 class MemoryItem(models.Model):
     entity = FK(Entity)
@@ -125,6 +143,10 @@ class ProposedAction(models.Model):
     entity = FK(Entity)
     module = models.CharField(max_length=50)
     action_type = models.CharField(max_length=100)    # "email.reply_draft" vb.
+    dedup_key = models.CharField(max_length=200)      # B1: aynı öneri iki kez
+                                                      # onaya düşmez; genelde
+                                                      # tetikleyen Event'in
+                                                      # dedup_key'i
     payload = models.JSONField()                      # taslak içerik, hedef, bağlam
     risk_level = models.CharField(choices=[("low",...),("medium",...),("high",...)])
     status = models.CharField(default="pending",
@@ -132,6 +154,9 @@ class ProposedAction(models.Model):
                  ("rejected",...),("executed",...),("failed",...)])
     decided_at = models.DateTimeField(null=True)
     decision_note = models.TextField(blank=True)      # kullanıcının edit'i buraya
+    class Meta:
+        constraints = [UniqueConstraint(fields=["entity","action_type","dedup_key"],
+                                        name="uniq_action_dedup")]
 
 class ActionPolicy(models.Model):                     # otonomi merdiveni
     entity = FK(Entity)
@@ -174,22 +199,46 @@ class ModuleContext:
     llm: LLMService            # tek LLM erişim yolu
     now: datetime
 
+    # B2 — modül DataSource'a ve ORM'e doğrudan dokunmaz, bu iki kapıdan geçer.
+    def sources(self, kind: str) -> list[SourceHandle]: ...
+        # O kind'e ait status=="active" kaynaklar. SourceHandle yalnızca
+        # {kind, cursor: dict, client: Any} taşır: credentials_enc çözülüp
+        # hazır API istemcisi olarak verilir, ham token modüle gösterilmez.
+        # reauth_required olan kaynak listeye girmez (§10/5).
+    def cursor_commit(self, source: SourceHandle, cursor: dict) -> None: ...
+        # Senkron başarıyla bittiğinde çağrılır; çekirdek DataSource.sync_cursor
+        # ve last_sync_at alanlarını yazar. Kısmi başarıda ÇAĞRILMAZ — bir
+        # sonraki koşu aynı yerden devam eder, mükerrerliği dedup_key keser.
+
 class BriefingSection(TypedDict):
     module: str; title: str; order: int
     items: list[dict]          # {"text": str, "ref": str|None, "feedback_key": str}
 
 class ModuleBase(ABC):
     key: str                   # "ecom_ops" gibi benzersiz
+    subscribes: list[str] = [] # B3 — dinlenen event tipleri, glob destekli:
+                               # ["email.received", "ads.*"]. Çekirdek dağıtımı
+                               # YALNIZCA bu listeye göre yapar; boş liste =
+                               # on_event hiç çağrılmaz. Bildirilmeyen bir tipi
+                               # işlemek için listeye eklenmesi gerekir.
+
     def collect(self, ctx) -> list[Event]: ...
-        # 1) Veri toplama: kaynaklardan çek, Event üret. Idempotent olmalı
-        #    (sync_cursor kullan, aynı olayı iki kez üretme).
+        # 1) Veri toplama: ctx.sources() üzerinden çek, KAYDEDİLMEMİŞ Event
+        #    nesneleri döndür. B1 — kaydı çekirdek yapar: her Event için
+        #    dedup_key zorunlu (boşsa ValueError), çekirdek get_or_create ile
+        #    yazar ve mükerrer olanı sessizce atar. Modül save() çağırmaz,
+        #    cursor'ı kendisi yazmaz (ctx.cursor_commit kullanır).
     def on_event(self, ctx, event: Event) -> None: ...
-        # 2) Olay aboneliği: ilgilendiği event tiplerini işler;
-        #    MemoryItem yazabilir, yeni Event üretebilir.
+        # 2) Olay aboneliği: yalnızca `subscribes` ile eşleşen event'ler gelir.
+        #    MemoryItem yazabilir, yeni Event döndürebilir — aynı dedup kuralı
+        #    türetilen event'ler için de geçerlidir.
     def briefing_contribution(self, ctx, date) -> BriefingSection | None: ...
-        # 3) Brifing katkısı: o günün bölümünü döner. Yoksa None.
+        # 3) Brifing katkısı: o günün bölümünü döner. Veri yoksa None —
+        #    exception fırlatmaz, boş bölüm döndürmez.
     def propose_actions(self, ctx) -> list[ProposedAction]: ...
         # 4) Aksiyon önerisi: asla doğrudan yürütmez, sadece önerir.
+        #    collect() ile aynı kural: kaydedilmemiş nesne döner, dedup_key
+        #    zorunlu, kaydı çekirdek yapar.
 ```
 
 Kayıt: `config/module_registry.py` içinde `ENABLED_MODULES = ["calendar_mod", "email_triage", "ecom_ops", "world_digest"]`. Yeni modül = yeni klasör + registry satırı. Çekirdek koduna dokunulmaz.
@@ -237,7 +286,7 @@ her gece     core.usage_report    # dünün LLM maliyeti brifinge küçük satı
 ```
 
 - Telegram: webhook (anlık). Shopify: webhook (orders/create, refunds/create) + günlük tam senkron. Gmail/GCal: polling (MVP'de Pub/Sub push kurulmaz).
-- Tüm görevler idempotent; `sync_cursor` günceller; hata → 3 retry (exponential) → Telegram'a hata özeti.
+- Tüm görevler idempotent. Mükerrerlik iki katmanda engellenir: `dedup_key` unique kısıtı (B1) ve `ctx.cursor_commit()` ile yalnızca başarılı senkron sonunda yazılan cursor (B2). Hata → 3 retry (exponential) → Telegram'a hata özeti.
 
 ---
 
@@ -271,7 +320,11 @@ Kurallar: TIER_FRONTIER günde entity başına ≤2 çağrı. Triyaj daima batch
 ## 9. Güvenlik / Gizlilik Temeli
 
 - OAuth token'ları ve API anahtarları: DB'de Fernet ile şifreli, anahtar .env'de.
-- Google scope'ları: `gmail.readonly`, `calendar.readonly` — yazma yok (Drafts hariç: `gmail.compose` yalnızca approval executor için, gönderme izni istenmez).
+- Google scope'ları: `gmail.readonly`, `calendar.readonly` ve taslak yazımı için `gmail.compose`.
+  **B4 — dikkat:** Google'da "yalnızca taslak" scope'u yoktur; `gmail.compose` teknik olarak `messages.send` yetkisini de kapsar. Gönderme kısıtı OAuth düzeyinde değil, **kod düzeyinde** sağlanır ve üç katmanla korunur:
+  1. Gmail istemci sarmalayıcısı dışarıya yalnızca `drafts.create` yüzeyini açar; `messages.send` ve `drafts.send` sarmalayıcıda tanımsızdır.
+  2. Bu yasak birim testle korunur: gönderme denemesi exception fırlatmalı (yeşil test olmadan 8. oturum kapanmaz).
+  3. Yazılan her taslak AuditLog'a düşer.
 - Her yürütülen aksiyon AuditLog'a yazılır.
 - Yönetim komutları: `python manage.py export_entity <id>` (tüm veri JSON) ve `purge_entity <id>` (geri dönüşsüz silme) — ilk oturumda iskelet olarak eklensin.
 - Telegram bot yalnızca beyaz listedeki chat_id ile konuşur (entity.settings["telegram_chat_id"]).
@@ -287,13 +340,14 @@ Her madde bir Claude Code oturumudur. Oturum sonunda testler geçer, migration t
 3. **MemoryService:** pgvector kurulumu, write/search/çelişki akışı, `manage.py memory_add / memory_query` CLI'ları, testler.
 4. **Telegram botu:** webhook, chat_id eşleme, gelen mesajları Event olarak kaydetme, test mesajı gönderimi.
 5. **Google OAuth + calendar_mod:** test mode OAuth akışı (localhost redirect), token şifreleme, takvim senkronu, ilk brifing bölümü.
+   **B5 — token ömrü:** Google'da "Testing" yayın durumundaki uygulamalarda refresh token 7 günde geçersizleşir. Bu oturuma şunlar dahildir, yoksa oturum kapanmış sayılmaz: her senkron öncesi token sağlık kontrolü; `invalid_grant` yakalanınca `DataSource.status = "reauth_required"` (bu kaynak `ctx.sources()` listesinden düşer, modül sessizce boş döner); Telegram'a tek tıklık yeniden yetkilendirme bağlantısı; brifingde "Google bağlantısı yenilenmeli" uyarı satırı.
 6. **email_triage:** Gmail senkron + batch triyaj + brifing bölümü (taslak akışı henüz yok).
 7. **BriefingService + beat:** uçtan uca ilk sabah brifingi (calendar + email + placeholder world_digest) Telegram'da.
 8. **ApprovalService:** ProposedAction akışı, inline butonlar, email.reply_draft executor (Gmail Drafts), AuditLog.
 9. **ecom_ops:** Shopify senkron + anomali kuralları + brifing bölümü; ardından Meta Ads insights.
 10. **Geri bildirim + kullanım raporu:** brifing item'larına 👍/👎, FeedbackSignal kaydı, günlük maliyet satırı; world_digest RSS gerçek implementasyon.
 
-**MVP "bitti" tanımı:** 7 ardışık sabah gerçek veriyle otomatik brifing geldi; ≥1 mail taslağı onaylanıp Drafts'a yazıldı; günlük maliyet raporu hedefin altında; export_entity çalışıyor.
+**MVP "bitti" tanımı:** 7 ardışık sabah gerçek veriyle otomatik brifing geldi — B5 gereği kullanıcının bu süre içinde bir kez Google yetkisini tazelemesi kriteri bozmaz, brifingin hiç gelmemesi bozar; ≥1 mail taslağı onaylanıp Drafts'a yazıldı; günlük maliyet raporu hedefin altında; export_entity çalışıyor.
 
 ---
 
